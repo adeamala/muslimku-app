@@ -1,0 +1,58 @@
+name: Flutter CI
+
+# Analyze, format and test on every push and pull request. No build here:
+# signed release bundles come from release.yml (see docs/RELEASE.md).
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  check:
+    name: analyze · format · test
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+
+      # .fvmrc is the single source of the Flutter version (local fvm + CI).
+      - name: Read Flutter version from .fvmrc
+        run: echo "FLUTTER_VERSION=$(jq -r .flutter .fvmrc)" >> "$GITHUB_ENV"
+
+      - uses: subosito/flutter-action@v2
+        with:
+          flutter-version: ${{ env.FLUTTER_VERSION }}
+          channel: stable
+          cache: true
+
+      - run: flutter --version
+      - run: flutter pub get
+
+      - name: Formatting
+        run: dart format --output=none --set-exit-if-changed lib test
+
+      - name: Analyze
+        run: flutter analyze
+
+      - name: Test
+        run: flutter test --coverage --reporter expanded
+
+      - name: Coverage summary
+        if: always()
+        run: |
+          if [ -f coverage/lcov.info ]; then
+            lf=$(grep -h '^LF:' coverage/lcov.info | cut -d: -f2 | paste -sd+ | bc)
+            lh=$(grep -h '^LH:' coverage/lcov.info | cut -d: -f2 | paste -sd+ | bc)
+            echo "Line coverage: $lh / $lf = $(( 100 * lh / lf ))%" | tee -a "$GITHUB_STEP_SUMMARY"
+          fi
+
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: coverage
+          path: coverage/lcov.info
+          if-no-files-found: ignore

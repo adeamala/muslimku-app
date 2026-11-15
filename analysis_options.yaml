@@ -1,0 +1,38 @@
+# Lints for Muslimku. flutter_lints is the base; the rules below keep the
+# feature-first layout consistent and catch async and null-safety slips.
+include: package:flutter_lints/flutter.yaml
+
+analyzer:
+  language:
+    strict-casts: true
+    strict-raw-types: true
+  errors:
+    # A Future that is neither awaited nor passed to unawaited() is a bug.
+    unawaited_futures: warning
+  exclude:
+    - build/**
+
+linter:
+  rules:
+    # Imports
+    always_use_package_imports: true
+    directives_ordering: true
+    # Async
+    unawaited_futures: true
+    avoid_void_async: true
+    cancel_subscriptions: true
+    # Style that keeps diffs small
+    prefer_single_quotes: true
+    prefer_final_locals: true
+    prefer_final_in_for_each: true
+    prefer_const_constructors: true
+    prefer_const_declarations: true
+    unnecessary_lambdas: true
+    unnecessary_parenthesis: true
+    sort_child_properties_last: true
+    use_super_parameters: true
+    # Safety
+    avoid_dynamic_calls: true
+    only_throw_errors: true
+    test_types_in_equals: true
+    use_build_context_synchronously: true

@@ -1,0 +1,503 @@
+<!doctype html>
+<html lang="id">
+<head>
+<meta charset="utf-8">
+<title>Muslimku 3D asset generator</title>
+<script type="importmap">{"imports":{"three":"./node_modules/three/build/three.module.js","three/addons/":"./node_modules/three/examples/jsm/"}}</script>
+<style>body{margin:0;background:transparent}canvas{display:block}</style>
+</head>
+<body>
+<canvas id="c"></canvas>
+<script type="module">
+import * as THREE from 'three';
+import { RoomEnvironment } from 'three/addons/environments/RoomEnvironment.js';
+import { RoundedBoxGeometry } from 'three/addons/geometries/RoundedBoxGeometry.js';
+
+/* Muslimku "Diorama Senja" 3D art. render.cjs runs this page headless and writes images/3d/*.webp. */
+const canvas = document.getElementById('c');
+const renderer = new THREE.WebGLRenderer({ canvas, antialias: true, alpha: true, preserveDrawingBuffer: true });
+renderer.setPixelRatio(1);
+renderer.toneMapping = THREE.ACESFilmicToneMapping;
+renderer.outputColorSpace = THREE.SRGBColorSpace;
+renderer.shadowMap.enabled = true;
+renderer.shadowMap.type = THREE.PCFSoftShadowMap;
+const pmrem = new THREE.PMREMGenerator(renderer);
+const envTex = pmrem.fromScene(new RoomEnvironment(), 0.04).texture;
+
+/* ---------- palettes (A = brand clay, B = porcelain, C = gold on night) ---------- */
+const PAL = {
+  A: { body: 0xF1EDFF, accent: 0x5A45FE, accent2: 0xD2F801, gold: 0xF2B33D, cream: 0xFFF6E5, dark: 0x2B2170, glow: 0xFFC765 },
+  B: { body: 0xFBF7F1, accent: 0xE9DCC8, accent2: 0xF6C77A, gold: 0xE7B655, cream: 0xFFFDF8, dark: 0x3A3550, glow: 0xFFD08A },
+  C: { body: 0x141A2B, accent: 0x1E2740, accent2: 0x0F5C4E, gold: 0xE6B547, cream: 0xF4E6C4, dark: 0x0B0F1A, glow: 0xFFC56B },
+};
+const clay = (color, o = {}) => new THREE.MeshStandardMaterial({ color, roughness: 0.62, metalness: 0, ...o });
+const metal = (color, o = {}) => new THREE.MeshStandardMaterial({ color, roughness: 0.3, metalness: 1, ...o });
+const glow = (color, intensity = 2.2) => new THREE.MeshStandardMaterial({ color, emissive: color, emissiveIntensity: intensity, roughness: 0.4 });
+function goldOf(p, rough = 0.32) { return p === 'C' ? metal(PAL.C.gold, { roughness: rough }) : metal(PAL[p].gold, { roughness: rough + 0.08, metalness: 0.85 }); }
+function mat(p, role) {
+  const P = PAL[p];
+  if (p === 'C') {
+    if (role === 'body') return metal(P.gold, { roughness: 0.3 });
+    if (role === 'dark') return clay(P.dark, { roughness: 0.38, metalness: 0.2 });
+    if (role === 'enamel') return clay(P.accent2, { roughness: 0.25, metalness: 0.3 });
+    if (role === 'paper') return clay(P.cream, { roughness: 0.5 });
+  }
+  if (role === 'body') return clay(P.body);
+  if (role === 'dark') return clay(P.dark);
+  if (role === 'enamel') return clay(P.accent);
+  if (role === 'paper') return clay(P.cream);
+  return clay(P.body);
+}
+
+/* ---------- geometry helpers ---------- */
+function lathe(profile, segs = 64) {
+  const curve = new THREE.CatmullRomCurve3(profile.map(([r, y]) => new THREE.Vector3(r, y, 0)));
+  const pts = curve.getPoints(80).map((v) => new THREE.Vector2(Math.max(0, v.x), v.y));
+  return new THREE.LatheGeometry(pts, segs);
+}
+function onionDome(scale = 1) {
+  return lathe([[1.0, 0], [1.1, 0.25], [1.12, 0.5], [0.98, 0.85], [0.66, 1.18], [0.32, 1.45], [0.1, 1.68], [0.0, 1.8]].map(([r, y]) => [r * scale, y * scale]));
+}
+function archShape(W, ys, H, x0 = -W / 2) {
+  // pointed arch: two arcs centred on the springline (r = (W^2/4 + H^2) / W)
+  const r = (W * W / 4 + H * H) / W, x1 = x0 + W, mid = x0 + W / 2;
+  const s = new THREE.Shape();
+  s.moveTo(x0, 0); s.lineTo(x0, ys);
+  s.absarc(x0 + r, ys, r, Math.PI, Math.atan2(H, mid - (x0 + r)), true);
+  s.absarc(x1 - r, ys, r, Math.atan2(H, mid - (x1 - r)), 0, true);
+  s.lineTo(x1, 0); s.lineTo(x0, 0);
+  return s;
+}
+function archPath(W, ys, H, x0 = -W / 2) {
+  const r = (W * W / 4 + H * H) / W, x1 = x0 + W, mid = x0 + W / 2;
+  const p = new THREE.Path();
+  p.moveTo(x0, 0); p.lineTo(x0, ys);
+  p.absarc(x0 + r, ys, r, Math.PI, Math.atan2(H, mid - (x0 + r)), true);
+  p.absarc(x1 - r, ys, r, Math.atan2(H, mid - (x1 - r)), 0, true);
+  p.lineTo(x1, 0); p.lineTo(x0, 0);
+  return p;
+}
+function starShape(points, rOut, rIn) {
+  const s = new THREE.Shape();
+  for (let i = 0; i <= points * 2; i++) {
+    const a = Math.PI / 2 + (i * Math.PI) / points, r = i % 2 ? rIn : rOut;
+    const x = Math.cos(a) * r, y = Math.sin(a) * r;
+    i ? s.lineTo(x, y) : s.moveTo(x, y);
+  }
+  return s;
+}
+function rubElHizb(r) { // 8-point star made of two squares
+  const s = new THREE.Shape(), k = r, pts = [];
+  for (let i = 0; i < 16; i++) {
+    const a = (i * Math.PI) / 8 + Math.PI / 8, rr = i % 2 ? k * 0.78 : k;
+    pts.push([Math.cos(a) * rr, Math.sin(a) * rr]);
+  }
+  pts.forEach(([x, y], i) => (i ? s.lineTo(x, y) : s.moveTo(x, y)));
+  return s;
+}
+function crescentShape(R = 1, r = 0.86, d = 0.42) {
+  // part of circle C1 (centre 0,0, radius R) outside circle C2 (centre d,0, radius r)
+  const x = (R * R - r * r + d * d) / (2 * d), y = Math.sqrt(Math.max(0, R * R - x * x));
+  const t1 = Math.atan2(y, x), p2 = Math.atan2(-y, x - d), p1 = Math.atan2(y, x - d);
+  const s = new THREE.Shape();
+  s.absarc(0, 0, R, t1, 2 * Math.PI - t1, false);
+  s.absarc(d, 0, r, p2, p1, true);
+  return s;
+}
+function crescentShapeOld(R = 1, r2 = 0.86, off = 0.42) {
+  // outer circle centre (0,0) radius R, inner circle centre (off,0.1) radius r2
+  const s = new THREE.Shape();
+  const cx = off, cy = 0.12;
+  // intersection angles approximated by sampling
+  const inside = (x, y) => (x - cx) ** 2 + (y - cy) ** 2 < r2 * r2;
+  const outer = [], inner = [];
+  for (let i = 0; i <= 720; i++) {
+    const a = (i / 720) * Math.PI * 2;
+    const x = Math.cos(a) * R, y = Math.sin(a) * R;
+    if (!inside(x, y)) outer.push([x, y, a]);
+  }
+  // order outer arc continuously (it wraps around angle pi)
+  outer.sort((p, q) => ((p[2] + Math.PI) % (2 * Math.PI)) - ((q[2] + Math.PI) % (2 * Math.PI)));
+  for (let i = 0; i <= 720; i++) {
+    const a = (i / 720) * Math.PI * 2;
+    const x = cx + Math.cos(a) * r2, y = cy + Math.sin(a) * r2;
+    if (x * x + y * y < R * R) inner.push([x, y, a]);
+  }
+  inner.sort((p, q) => ((q[2] + Math.PI) % (2 * Math.PI)) - ((p[2] + Math.PI) % (2 * Math.PI)));
+  outer.forEach(([x, y], i) => (i ? s.lineTo(x, y) : s.moveTo(x, y)));
+  inner.forEach(([x, y]) => s.lineTo(x, y));
+  return s;
+}
+const extrude = (shape, depth, bevel = 0.04, segs = 3) => {
+  const g = new THREE.ExtrudeGeometry(shape, { depth, bevelEnabled: true, bevelThickness: bevel, bevelSize: bevel, bevelSegments: segs, curveSegments: 48 });
+  g.translate(0, 0, -depth / 2); return g;
+};
+function patternTexture(fg, bg, size = 512, cell = 64, line = 3) {
+  const cv = document.createElement('canvas'); cv.width = cv.height = size;
+  const g = cv.getContext('2d'); g.fillStyle = bg; g.fillRect(0, 0, size, size);
+  g.strokeStyle = fg; g.lineWidth = line;
+  for (let y = 0; y < size + cell; y += cell) for (let x = 0; x < size + cell; x += cell) {
+    g.save(); g.translate(x, y);
+    for (const rot of [0, Math.PI / 4]) { g.save(); g.rotate(rot); g.strokeRect(-cell * 0.3, -cell * 0.3, cell * 0.6, cell * 0.6); g.restore(); }
+    g.restore();
+  }
+  const t = new THREE.CanvasTexture(cv); t.colorSpace = THREE.SRGBColorSpace; t.wrapS = t.wrapT = THREE.RepeatWrapping; return t;
+}
+function mesh(geo, material, cast = true) { const m = new THREE.Mesh(geo, material); m.castShadow = cast; m.receiveShadow = true; return m; }
+function fit(obj, size = 1.8) {
+  const box = new THREE.Box3().setFromObject(obj), s = new THREE.Vector3(), c = new THREE.Vector3();
+  box.getSize(s); box.getCenter(c);
+  const k = size / Math.max(s.x, s.y, s.z);
+  obj.scale.multiplyScalar(k); obj.position.sub(c.multiplyScalar(k));
+  const b2 = new THREE.Box3().setFromObject(obj); obj.position.y -= b2.min.y; // sit on y=0
+  return obj;
+}
+
+/* ---------- models ---------- */
+function minaret(p, h = 3.2) {
+  const g = new THREE.Group(), body = mat(p, 'body'), gold = goldOf(p);
+  const shaft = mesh(new THREE.CylinderGeometry(0.17, 0.21, h, 24), body); shaft.position.y = h / 2; g.add(shaft);
+  [0.55, 0.82].forEach((t) => { const b = mesh(new THREE.CylinderGeometry(0.29, 0.25, 0.09, 24), p === 'A' ? clay(PAL.A.accent) : gold); b.position.y = h * t; g.add(b); });
+  const top = mesh(onionDome(0.22), gold); top.position.y = h; g.add(top);
+  const spire = mesh(new THREE.CylinderGeometry(0.012, 0.02, 0.32, 8), gold); spire.position.y = h + 0.5; g.add(spire);
+  return g;
+}
+function mosque(p, night = true) {
+  const g = new THREE.Group(), P = PAL[p], body = mat(p, 'body'), gold = goldOf(p);
+  const hall = mesh(new RoundedBoxGeometry(3.0, 1.5, 2.1, 4, 0.12), body); hall.position.y = 0.75; g.add(hall);
+  const portal = mesh(new RoundedBoxGeometry(1.25, 2.05, 0.5, 4, 0.08), body); portal.position.set(0, 1.02, 1.12); g.add(portal);
+  const win = night ? new THREE.MeshStandardMaterial({ color: 0xFFB55C, emissive: 0xFF9A3C, emissiveIntensity: 2.2, roughness: 0.4 }) : glow(P.glow, 0.6);
+  const door = mesh(new THREE.ShapeGeometry(archShape(0.62, 0.78, 0.5), 32), win, false); door.position.set(0, 0.06, 1.38); g.add(door);
+  const rimShape = archShape(0.8, 0.84, 0.6); rimShape.holes.push(archPath(0.62, 0.84, 0.5, -0.31));
+  const doorRim = mesh(extrude(rimShape, 0.05, 0.015, 2), p === 'A' ? clay(P.accent) : gold); doorRim.position.set(0, 0.0, 1.39); g.add(doorRim);
+  for (const x of [-1.05, -0.62, 0.62, 1.05]) { const w = mesh(new THREE.ShapeGeometry(archShape(0.24, 0.32, 0.2), 24), win, false); w.position.set(x, 0.62, 1.055); g.add(w); }
+  for (const z of [-0.5, 0.2]) for (const sx of [-1, 1]) { const w = mesh(new THREE.ShapeGeometry(archShape(0.22, 0.3, 0.18), 24), win, false); w.position.set(sx * 1.505, 0.62, z); w.rotation.y = sx * Math.PI / 2; g.add(w); }
+  const drum = mesh(new THREE.CylinderGeometry(0.78, 0.82, 0.32, 48), body); drum.position.y = 1.66; g.add(drum);
+  const dome = mesh(onionDome(0.74), gold); dome.position.y = 1.8; g.add(dome);
+  const fin = mesh(new THREE.CylinderGeometry(0.015, 0.025, 0.4, 8), gold); fin.position.y = 3.35; g.add(fin);
+  const moon = mesh(extrude(crescentShape(1, 0.86, 0.42), 0.12, 0.02, 2), gold); moon.scale.setScalar(0.11); moon.position.y = 3.62; g.add(moon);
+  for (const sx of [-1, 1]) {
+    const d = mesh(onionDome(0.32), gold); d.position.set(sx * 1.0, 1.5, -0.25); g.add(d);
+    const m = minaret(p); m.position.set(sx * 1.78, 0, -0.75); g.add(m);
+  }
+  return g;
+}
+function island(p) {
+  const g = new THREE.Group(), P = PAL[p];
+  const top = mesh(lathe([[0, 0], [2.6, 0], [3.1, -0.04], [3.25, -0.16], [3.2, -0.3]], 96), clay(0xC5E34E, { side: THREE.DoubleSide }));
+  g.add(top);
+  const under = mesh(lathe([[3.2, -0.3], [3.05, -0.8], [2.55, -1.45], [1.75, -2.15], [0.85, -2.75], [0.0, -3.05]], 14), clay(0x2A1D8C, { roughness: 0.85, flatShading: true, side: THREE.DoubleSide }));
+  g.add(under);
+  const band = mesh(new THREE.TorusGeometry(3.12, 0.07, 12, 128), clay(0xB6A9FF)); band.rotation.x = Math.PI / 2; band.position.y = -0.55; g.add(band);
+  const path = mesh(new RoundedBoxGeometry(0.75, 0.04, 2.0, 2, 0.02), clay(PAL.A.cream)); path.position.set(0, 0.02, 1.95); g.add(path);
+  const pool = mesh(new RoundedBoxGeometry(1.5, 0.03, 0.55, 2, 0.02), new THREE.MeshStandardMaterial({ color: 0x8E7CFF, roughness: 0.08, metalness: 0.2 })); pool.position.set(0, 0.03, 2.45); g.add(pool);
+  const tree = (x, z, s) => {
+    const t = new THREE.Group();
+    const trunk = mesh(new THREE.CylinderGeometry(0.04, 0.06, 0.45, 8), clay(0x8A5A3C)); trunk.position.y = 0.22; t.add(trunk);
+    const crown = mesh(new THREE.SphereGeometry(0.32, 24, 16), clay(0x9ED33A)); crown.position.y = 0.62; crown.scale.y = 1.15; t.add(crown);
+    t.position.set(x, 0, z); t.scale.setScalar(s); g.add(t);
+  };
+  [[-2.3, 0.6, 1], [-2.0, 1.5, 0.8], [2.35, 0.7, 1.05], [2.1, 1.55, 0.75], [-2.4, -0.7, 0.9], [2.45, -0.6, 0.85]].forEach((a) => tree(...a));
+  const lamp = (x, z) => {
+    const post = mesh(new THREE.CylinderGeometry(0.025, 0.03, 0.55, 8), clay(PAL.A.dark)); post.position.set(x, 0.28, z); g.add(post);
+    const bulb = mesh(new THREE.SphereGeometry(0.07, 16, 12), glow(PAL.A.glow, 3)); bulb.position.set(x, 0.6, z); g.add(bulb);
+    const l = new THREE.PointLight(0xFFC27A, 1.6, 2.2, 2); l.position.set(x, 0.65, z); g.add(l);
+  };
+  lamp(-0.6, 1.6); lamp(0.6, 1.6); lamp(-0.6, 2.6); lamp(0.6, 2.6);
+  const m = mosque('A', true); m.position.set(0, 0, -0.3); g.add(m);
+  return g;
+}
+function lantern(p) {
+  const g = new THREE.Group(), gold = goldOf(p, 0.26);
+  const glass = new THREE.MeshStandardMaterial({ color: 0xFFB04A, emissive: 0xFF8A1E, emissiveIntensity: 1.35, roughness: 0.35, transparent: true, opacity: 0.94 });
+  const body = mesh(new THREE.CylinderGeometry(0.42, 0.34, 1.0, 6, 1, true), glass, false); body.position.y = 0; g.add(body);
+  const core = mesh(new THREE.SphereGeometry(0.16, 20, 16), glow(0xFFF1C9, 4)); g.add(core);
+  const pl = new THREE.PointLight(0xFFC56B, 3.5, 4, 2); g.add(pl);
+  for (let i = 0; i < 6; i++) {
+    const a = (i / 6) * Math.PI * 2 + Math.PI / 6;
+    const bar = mesh(new THREE.CylinderGeometry(0.022, 0.022, 1.04, 8), gold);
+    bar.position.set(Math.cos(a) * 0.385, 0, Math.sin(a) * 0.385); bar.rotation.z = Math.cos(a) * 0.08; bar.rotation.x = -Math.sin(a) * 0.08; g.add(bar);
+  }
+  const ringT = mesh(new THREE.CylinderGeometry(0.5, 0.46, 0.08, 6), gold); ringT.position.y = 0.52; g.add(ringT);
+  const ringB = mesh(new THREE.CylinderGeometry(0.38, 0.32, 0.08, 6), gold); ringB.position.y = -0.52; g.add(ringB);
+  const cap = mesh(lathe([[0.5, 0], [0.46, 0.12], [0.34, 0.3], [0.18, 0.48], [0.06, 0.62], [0.0, 0.66]], 6), gold); cap.position.y = 0.56; g.add(cap);
+  const base = mesh(lathe([[0.32, 0], [0.26, -0.12], [0.14, -0.24], [0.05, -0.36], [0.0, -0.4]], 6), gold); base.position.y = -0.56; g.add(base);
+  const loop = mesh(new THREE.TorusGeometry(0.09, 0.022, 10, 32), gold); loop.position.y = 1.32; g.add(loop);
+  for (let i = 0; i < 7; i++) { const link = mesh(new THREE.TorusGeometry(0.05, 0.014, 8, 20), gold); link.position.y = 1.45 + i * 0.085; link.rotation.y = i % 2 ? Math.PI / 2 : 0; g.add(link); }
+  const top = mesh(new THREE.SphereGeometry(0.05, 12, 10), gold); top.position.y = -0.98; g.add(top);
+  return g;
+}
+function crescentStar(p) {
+  const g = new THREE.Group(), gold = goldOf(p, 0.24);
+  const c = mesh(extrude(crescentShape(1, 0.84, 0.44), 0.22, 0.06, 4), gold); c.rotation.z = -0.35; g.add(c);
+  const s = mesh(extrude(starShape(5, 0.26, 0.11), 0.12, 0.03, 3), gold); s.position.set(0.55, 0.35, 0.02); g.add(s);
+  return g;
+}
+function archPortal(p) {
+  const g = new THREE.Group(), gold = goldOf(p, 0.28);
+  const outer = archShape(2.4, 2.3, 1.75); outer.holes.push(archPath(2.0, 2.2, 1.5));
+  const frame = mesh(extrude(outer, 0.28, 0.06, 4), gold); g.add(frame);
+  const tex = patternTexture('rgba(230,181,71,0.22)', '#0D1424', 512, 64, 2.2); tex.repeat.set(2, 3);
+  const back = mesh(new THREE.ShapeGeometry(archShape(2.0, 2.2, 1.5), 48), new THREE.MeshStandardMaterial({ map: tex, roughness: 0.85 }), false);
+  back.position.z = -0.12; g.add(back);
+  const inner = mesh(extrude((() => { const s = archShape(2.12, 2.24, 1.58); s.holes.push(archPath(2.02, 2.21, 1.52)); return s; })(), 0.05, 0.01, 1), gold); inner.position.z = -0.06; g.add(inner);
+  return g;
+}
+/* icons */
+function iconQuran(p) {
+  const g = new THREE.Group(), P = PAL[p];
+  const coverMat = p === 'A' ? clay(P.accent) : p === 'B' ? clay(0x1F6F5C) : mat(p, 'enamel');
+  const pages = mesh(new RoundedBoxGeometry(1.5, 0.28, 2.0, 2, 0.03), mat(p, 'paper')); g.add(pages);
+  const top = mesh(new RoundedBoxGeometry(1.62, 0.08, 2.12, 3, 0.04), coverMat); top.position.y = 0.17; g.add(top);
+  const bot = mesh(new RoundedBoxGeometry(1.62, 0.08, 2.12, 3, 0.04), coverMat); bot.position.y = -0.17; g.add(bot);
+  const spine = mesh(new RoundedBoxGeometry(0.14, 0.42, 2.12, 3, 0.06), coverMat); spine.position.x = -0.78; g.add(spine);
+  const emb = mesh(extrude(rubElHizb(0.38), 0.05, 0.015, 2), goldOf(p)); emb.rotation.x = -Math.PI / 2; emb.position.set(0.08, 0.235, 0); g.add(emb);
+  const ribbon = mesh(new RoundedBoxGeometry(0.12, 0.02, 0.5, 1, 0.01), clay(p === 'A' ? PAL.A.accent2 : PAL.C.gold)); ribbon.position.set(0.35, -0.02, 1.2); ribbon.rotation.x = 0.5; g.add(ribbon);
+  g.rotation.set(0.15, -0.5, 0.1);
+  return g;
+}
+function iconScroll(p) {
+  const g = new THREE.Group();
+  const cv = document.createElement('canvas'); cv.width = 256; cv.height = 320; const c = cv.getContext('2d');
+  c.fillStyle = '#FFF6E2'; c.fillRect(0, 0, 256, 320); c.fillStyle = 'rgba(90,70,40,0.28)';
+  for (let i = 0; i < 9; i++) { const w = 150 + ((i * 37) % 50); c.fillRect(256 - 40 - w, 40 + i * 28, w, 7); }
+  const tex = new THREE.CanvasTexture(cv); tex.colorSpace = THREE.SRGBColorSpace;
+  const sheetGeo = new THREE.PlaneGeometry(1.5, 1.9, 24, 24); const pos = sheetGeo.attributes.position;
+  for (let i = 0; i < pos.count; i++) { const x = pos.getX(i); pos.setZ(i, 0.08 * Math.cos((x / 0.75) * Math.PI / 2)); }
+  sheetGeo.computeVertexNormals();
+  const sheet = mesh(sheetGeo, new THREE.MeshStandardMaterial({ map: tex, roughness: 0.65, side: THREE.DoubleSide }));
+  sheet.rotation.x = -Math.PI / 2; sheet.position.y = 0.17; g.add(sheet);
+  const rollMat = p === 'A' ? clay(PAL.A.accent) : p === 'B' ? clay(0x2F7A64) : mat(p, 'enamel');
+  for (const z of [-0.98, 0.98]) {
+    const roll = mesh(new THREE.CylinderGeometry(0.16, 0.16, 1.62, 32), clay(0xFFF1D6)); roll.rotation.z = Math.PI / 2; roll.position.set(0, 0.17, z); g.add(roll);
+    const rod = mesh(new THREE.CylinderGeometry(0.05, 0.05, 1.95, 16), rollMat); rod.rotation.z = Math.PI / 2; rod.position.set(0, 0.17, z); g.add(rod);
+    for (const x of [-0.98, 0.98]) { const k = mesh(new THREE.SphereGeometry(0.1, 16, 12), goldOf(p)); k.position.set(x, 0.17, z); g.add(k); }
+  }
+  const seal = mesh(extrude(starShape(8, 0.2, 0.15), 0.05, 0.01, 2), goldOf(p)); seal.rotation.x = -Math.PI / 2; seal.position.set(-0.35, 0.27, 0.55); g.add(seal);
+  g.rotation.set(0.45, -0.55, 0.05);
+  return g;
+}
+function iconRug(p) {
+  const g = new THREE.Group(), P = PAL[p];
+  const cv = document.createElement('canvas'); cv.width = 256; cv.height = 384; const c = cv.getContext('2d');
+  const base = p === 'A' ? '#5A45FE' : p === 'B' ? '#2F7A64' : '#0F5C4E', line = p === 'A' ? '#D2F801' : '#E6B547';
+  c.fillStyle = base; c.fillRect(0, 0, 256, 384); c.strokeStyle = line; c.lineWidth = 8; c.strokeRect(14, 14, 228, 356);
+  c.lineWidth = 5; c.beginPath(); c.moveTo(48, 330); c.lineTo(48, 150); c.quadraticCurveTo(48, 70, 128, 44); c.quadraticCurveTo(208, 70, 208, 150); c.lineTo(208, 330); c.stroke();
+  c.fillStyle = line; c.beginPath(); c.arc(128, 110, 10, 0, Math.PI * 2); c.fill();
+  const tex = new THREE.CanvasTexture(cv); tex.colorSpace = THREE.SRGBColorSpace;
+  const top = new THREE.MeshStandardMaterial({ map: tex, roughness: 0.85 });
+  const side = clay(new THREE.Color(base).getHex(), { roughness: 0.85 });
+  const rug = mesh(new RoundedBoxGeometry(1.4, 0.08, 2.1, 2, 0.03), [side, side, top, side, side, side]); g.add(rug);
+  const roll = mesh(new THREE.CylinderGeometry(0.16, 0.16, 1.4, 24), side); roll.rotation.z = Math.PI / 2; roll.position.set(0, 0.12, -1.05); g.add(roll);
+  for (let i = 0; i < 9; i++) { const f = mesh(new THREE.CylinderGeometry(0.018, 0.018, 0.16, 6), clay(p === 'A' ? PAL.A.accent2 : PAL.C.gold)); f.rotation.x = Math.PI / 2; f.position.set(-0.6 + i * 0.15, 0, 1.12); g.add(f); }
+  g.rotation.set(0.5, -0.55, 0.05);
+  return g;
+}
+function iconStar(p) {
+  const g = new THREE.Group();
+  const star = mesh(extrude(rubElHizb(1), 0.24, 0.07, 4), goldOf(p, 0.26)); g.add(star);
+  const ring = mesh(new THREE.TorusGeometry(0.55, 0.06, 16, 64), p === 'A' ? clay(PAL.A.accent) : mat(p, 'enamel')); ring.position.z = 0.2; g.add(ring);
+  const gem = mesh(new THREE.SphereGeometry(0.36, 32, 24), new THREE.MeshPhysicalMaterial({ color: p === 'A' ? 0x7B6BFF : 0x1FA382, roughness: 0.08, metalness: 0.1, clearcoat: 1, emissive: p === 'A' ? 0x2A1C9E : 0x08493C, emissiveIntensity: 0.6 }));
+  gem.scale.z = 0.55; gem.position.z = 0.2; g.add(gem);
+  g.rotation.set(-0.25, 0.45, 0);
+  return g;
+}
+function iconKaaba(p) {
+  const g = new THREE.Group();
+  const disc = mesh(new THREE.CylinderGeometry(1.25, 1.3, 0.14, 64), p === 'A' ? clay(PAL.A.body) : p === 'B' ? clay(0xF3ECE1) : mat(p, 'dark')); disc.position.y = -0.07; g.add(disc);
+  const rim = mesh(new THREE.TorusGeometry(1.27, 0.04, 12, 96), goldOf(p)); rim.rotation.x = Math.PI / 2; g.add(rim);
+  for (let i = 0; i < 4; i++) { const t = mesh(new THREE.BoxGeometry(0.05, 0.03, 0.22), goldOf(p)); const a = (i * Math.PI) / 2; t.position.set(Math.sin(a) * 1.05, 0.02, Math.cos(a) * 1.05); t.rotation.y = a; g.add(t); }
+  const needle = mesh(new THREE.ConeGeometry(0.09, 0.55, 12), p === 'A' ? clay(PAL.A.accent2) : goldOf(p)); needle.rotation.x = Math.PI / 2; needle.position.set(0, 0.06, -0.85); g.add(needle);
+  const k = mesh(new RoundedBoxGeometry(0.85, 0.95, 0.85, 3, 0.03), clay(0x15161C, { roughness: 0.55 })); k.position.y = 0.47; g.add(k);
+  const band = mesh(new RoundedBoxGeometry(0.87, 0.1, 0.87, 2, 0.02), goldOf(p, 0.3)); band.position.y = 0.7; g.add(band);
+  const door = mesh(new THREE.BoxGeometry(0.2, 0.36, 0.02), goldOf(p, 0.3)); door.position.set(0.18, 0.3, 0.43); g.add(door);
+  g.rotation.set(0.18, -0.6, 0);
+  return g;
+}
+function iconTasbih(p) {
+  const g = new THREE.Group();
+  const beadMat = p === 'A' ? new THREE.MeshPhysicalMaterial({ color: PAL.A.accent, roughness: 0.2, clearcoat: 1 }) : p === 'B' ? new THREE.MeshPhysicalMaterial({ color: 0x2F7A64, roughness: 0.25, clearcoat: 1 }) : new THREE.MeshPhysicalMaterial({ color: 0x0F5C4E, roughness: 0.2, clearcoat: 1 });
+  const n = 33;
+  for (let i = 0; i < n; i++) {
+    const t = (i / n) * Math.PI * 2;
+    const b = mesh(new THREE.SphereGeometry(0.105, 20, 14), (i % 11 === 0) ? goldOf(p) : beadMat);
+    b.position.set(Math.cos(t) * 1.0, 0, Math.sin(t) * 0.8); g.add(b);
+  }
+  const imam = mesh(new THREE.CylinderGeometry(0.07, 0.12, 0.34, 16), goldOf(p)); imam.position.set(0, -0.05, 0.98); imam.rotation.x = Math.PI / 2.4; g.add(imam);
+  const tassel = mesh(new THREE.ConeGeometry(0.15, 0.55, 20), p === 'A' ? clay(PAL.A.accent2) : goldOf(p, 0.45)); tassel.position.set(0, -0.12, 1.35); tassel.rotation.x = -Math.PI / 2.3; g.add(tassel);
+  g.rotation.set(0.75, -0.3, 0);
+  return g;
+}
+function iconCalendar(p) {
+  // Desk calendar: cream block, purple header, gold crescent, a grid of day dots with today in lime.
+  const g = new THREE.Group(), P = PAL[p];
+  const block = mesh(new RoundedBoxGeometry(1.9, 1.9, 0.5, 3, 0.08), clay(P.cream)); g.add(block);
+  const head = mesh(new RoundedBoxGeometry(1.9, 0.52, 0.54, 3, 0.08), clay(P.accent)); head.position.set(0, 0.7, 0.0); g.add(head);
+  for (const x of [-0.55, 0.55]) { const ring = mesh(new THREE.TorusGeometry(0.14, 0.045, 12, 32), goldOf(p)); ring.position.set(x, 1.0, 0.0); g.add(ring); }
+  const moon = mesh(extrude(crescentShape(0.19, 0.16, 0.08), 0.06, 0.012, 2), goldOf(p)); moon.position.set(-0.62, 0.7, 0.29); moon.rotation.z = -0.5; g.add(moon);
+  const rows = 4, cols = 5; let n = 0;
+  for (let r = 0; r < rows; r++) for (let c = 0; c < cols; c++) {
+    const today = (r === 2 && c === 2);
+    const d = mesh(new THREE.SphereGeometry(today ? 0.11 : 0.075, 16, 12), today ? clay(P.accent2) : clay(P.accent, { roughness: 0.5 }));
+    d.scale.z = 0.55; d.position.set(-0.64 + c * 0.32, 0.26 - r * 0.3, 0.27); g.add(d); n++;
+  }
+  g.rotation.set(0.12, -0.5, 0.04);
+  return g;
+}
+function iconChecklist(p) {
+  // Clipboard with three lines, two lime ticks and one empty ring: the prayer log.
+  const g = new THREE.Group(), P = PAL[p];
+  const board = mesh(new RoundedBoxGeometry(1.6, 2.1, 0.16, 3, 0.07), clay(P.accent)); g.add(board);
+  const paper = mesh(new RoundedBoxGeometry(1.36, 1.74, 0.08, 2, 0.03), clay(P.cream)); paper.position.set(0, -0.08, 0.1); g.add(paper);
+  const clip = mesh(new RoundedBoxGeometry(0.6, 0.22, 0.22, 2, 0.06), goldOf(p)); clip.position.set(0, 0.98, 0.1); g.add(clip);
+  const ys = [0.42, -0.08, -0.58];
+  ys.forEach((y, i) => {
+    const line = mesh(new RoundedBoxGeometry(0.72, 0.09, 0.03, 1, 0.015), clay(0xC9C2EE)); line.position.set(0.18, y, 0.16); g.add(line);
+    if (i < 2) {
+      const a = mesh(new RoundedBoxGeometry(0.1, 0.26, 0.06, 1, 0.03), clay(P.accent2)); a.position.set(-0.42, y - 0.02, 0.18); a.rotation.z = -0.75; g.add(a);
+      const b = mesh(new RoundedBoxGeometry(0.1, 0.16, 0.06, 1, 0.03), clay(P.accent2)); b.position.set(-0.53, y - 0.06, 0.18); b.rotation.z = 0.75; g.add(b);
+    } else {
+      const ring = mesh(new THREE.TorusGeometry(0.1, 0.035, 10, 28), clay(P.accent)); ring.position.set(-0.45, y, 0.17); g.add(ring);
+    }
+  });
+  g.rotation.set(0.18, -0.45, 0.06);
+  return g;
+}
+function iconClock(p) {
+  // Round clock: purple rim, cream face, gold hands and a lime second hand: the monthly schedule.
+  const g = new THREE.Group(), P = PAL[p];
+  const rim = mesh(new THREE.CylinderGeometry(1.05, 1.05, 0.36, 64), clay(P.accent)); rim.rotation.x = Math.PI / 2; g.add(rim);
+  const face = mesh(new THREE.CylinderGeometry(0.9, 0.9, 0.1, 64), clay(P.cream)); face.rotation.x = Math.PI / 2; face.position.z = 0.16; g.add(face);
+  for (let i = 0; i < 12; i++) { const a = (i / 12) * Math.PI * 2; const big = i % 3 === 0; const t = mesh(new RoundedBoxGeometry(big ? 0.1 : 0.06, big ? 0.2 : 0.12, 0.04, 1, 0.015), big ? goldOf(p) : clay(P.accent)); t.position.set(Math.sin(a) * 0.74, Math.cos(a) * 0.74, 0.23); t.rotation.z = -a; g.add(t); }
+  const hour = mesh(new RoundedBoxGeometry(0.11, 0.46, 0.05, 1, 0.03), goldOf(p)); hour.position.set(0.14, 0.17, 0.26); hour.rotation.z = -0.65; g.add(hour);
+  const minute = mesh(new RoundedBoxGeometry(0.09, 0.66, 0.05, 1, 0.03), goldOf(p)); minute.position.set(-0.05, 0.3, 0.28); minute.rotation.z = 0.2; g.add(minute);
+  const second = mesh(new RoundedBoxGeometry(0.04, 0.72, 0.03, 1, 0.01), clay(P.accent2)); second.position.set(-0.26, -0.18, 0.3); second.rotation.z = 2.2; g.add(second);
+  const pin = mesh(new THREE.SphereGeometry(0.09, 16, 12), clay(P.accent2)); pin.position.z = 0.3; g.add(pin);
+  const knob = mesh(new THREE.CylinderGeometry(0.1, 0.1, 0.22, 24), goldOf(p)); knob.position.set(0, 1.15, 0); g.add(knob);
+  const bell1 = mesh(new THREE.SphereGeometry(0.2, 20, 14, 0, Math.PI * 2, 0, Math.PI / 2), goldOf(p)); bell1.position.set(-0.62, 0.9, 0); bell1.rotation.z = 0.6; g.add(bell1);
+  const bell2 = mesh(new THREE.SphereGeometry(0.2, 20, 14, 0, Math.PI * 2, 0, Math.PI / 2), goldOf(p)); bell2.position.set(0.62, 0.9, 0); bell2.rotation.z = -0.6; g.add(bell2);
+  g.rotation.set(0.1, -0.45, 0.05);
+  return g;
+}
+function iconHome(p) {
+  const g = new THREE.Group(), m = mosque(p, false); g.add(m); g.rotation.y = -0.45; return g;
+}
+
+/* ---------- scene / camera / light rigs ---------- */
+function rig(kind, p) {
+  const scene = new THREE.Scene();
+  scene.environment = envTex; scene.environmentIntensity = p === 'C' ? 0.95 : 0.55;
+  const key = new THREE.DirectionalLight(p === 'C' ? 0xFFE2B0 : 0xFFF1E0, p === 'C' ? 2.2 : 2.6);
+  key.position.set(-3, 5, 4); key.castShadow = true; key.shadow.mapSize.set(2048, 2048);
+  key.shadow.camera.left = key.shadow.camera.bottom = -6; key.shadow.camera.right = key.shadow.camera.top = 6; key.shadow.radius = 6; key.shadow.bias = -0.0004;
+  scene.add(key);
+  const fill = new THREE.DirectionalLight(p === 'A' ? 0xA79BFF : p === 'B' ? 0xFFD9B8 : 0x6E86FF, p === 'C' ? 0.7 : 0.9); fill.position.set(4, 2, 2); scene.add(fill);
+  const rim = new THREE.DirectionalLight(0xFFFFFF, p === 'C' ? 1.4 : 1.0); rim.position.set(1, 3, -5); scene.add(rim);
+  scene.add(new THREE.HemisphereLight(p === 'A' ? 0xC9C0FF : 0xFFF4E6, p === 'C' ? 0x0B0F1A : 0x6B5CC9, p === 'C' ? 0.25 : 0.45));
+  if (kind !== 'float') {
+    const catcher = new THREE.Mesh(new THREE.PlaneGeometry(30, 30), new THREE.ShadowMaterial({ opacity: p === 'C' ? 0.45 : 0.18 }));
+    catcher.rotation.x = -Math.PI / 2; catcher.receiveShadow = true; scene.add(catcher);
+  }
+  return scene;
+}
+function camera(w, h, pos, target = [0, 0.8, 0], fov = 30) {
+  const c = new THREE.PerspectiveCamera(fov, w / h, 0.1, 100); c.position.set(...pos); c.lookAt(...target); return c;
+}
+function fitCamera(obj, dir, w, h, fov = 28, pad = 1.08, lift = 0) {
+  const sphere = new THREE.Box3().setFromObject(obj).getBoundingSphere(new THREE.Sphere());
+  const vf = THREE.MathUtils.degToRad(fov), hf = 2 * Math.atan(Math.tan(vf / 2) * (w / h));
+  const dist = (sphere.radius * pad) / Math.sin(Math.min(vf, hf) / 2);
+  const d = new THREE.Vector3(...dir).normalize();
+  const c = new THREE.PerspectiveCamera(fov, w / h, 0.1, 200);
+  c.position.copy(sphere.center).addScaledVector(d, dist); c.lookAt(sphere.center.x, sphere.center.y + lift, sphere.center.z);
+  return c;
+}
+function render(name, scene, cam, w, h) {
+  renderer.setSize(w, h, false); canvas.width = w; canvas.height = h;
+  renderer.setClearColor(0x000000, 0); renderer.clear();
+  renderer.render(scene, cam);
+  window.__assets[name] = canvas.toDataURL('image/png');
+}
+
+function kaaba(p) {
+  const g = new THREE.Group();
+  const k = mesh(new RoundedBoxGeometry(0.85, 0.95, 0.85, 3, 0.03), clay(0x15161C, { roughness: 0.55 })); k.position.y = 0.475; g.add(k);
+  const band = mesh(new RoundedBoxGeometry(0.87, 0.1, 0.87, 2, 0.02), goldOf(p, 0.3)); band.position.y = 0.7; g.add(band);
+  const door = mesh(new THREE.BoxGeometry(0.2, 0.36, 0.02), goldOf(p, 0.3)); door.position.set(0.18, 0.3, 0.43); g.add(door);
+  g.rotation.set(0.12, -0.6, 0);
+  return g;
+}
+
+/* Trim transparent margins, downscale in halving steps, return a WebP data URL. */
+function exportWebp(maxW, maxH, quality = 0.9) {
+  const w = canvas.width, h = canvas.height;
+  const full = document.createElement('canvas'); full.width = w; full.height = h;
+  const fg = full.getContext('2d'); fg.drawImage(canvas, 0, 0);
+  const d = fg.getImageData(0, 0, w, h).data;
+  let x0 = w, y0 = h, x1 = -1, y1 = -1;
+  for (let y = 0; y < h; y++) for (let x = 0; x < w; x++) {
+    if (d[(y * w + x) * 4 + 3] > 8) { if (x < x0) x0 = x; if (x > x1) x1 = x; if (y < y0) y0 = y; if (y > y1) y1 = y; }
+  }
+  const pad = 4;
+  x0 = Math.max(0, x0 - pad); y0 = Math.max(0, y0 - pad); x1 = Math.min(w - 1, x1 + pad); y1 = Math.min(h - 1, y1 + pad);
+  let cur = document.createElement('canvas'); cur.width = x1 - x0 + 1; cur.height = y1 - y0 + 1;
+  cur.getContext('2d').drawImage(full, x0, y0, cur.width, cur.height, 0, 0, cur.width, cur.height);
+  const k = Math.min(1, maxW / cur.width, maxH / cur.height);
+  const tw = Math.round(cur.width * k), th = Math.round(cur.height * k);
+  while (cur.width / 2 >= tw && cur.height / 2 >= th) {
+    const half = document.createElement('canvas'); half.width = Math.round(cur.width / 2); half.height = Math.round(cur.height / 2);
+    const hg = half.getContext('2d'); hg.imageSmoothingQuality = 'high'; hg.drawImage(cur, 0, 0, half.width, half.height); cur = half;
+  }
+  const out = document.createElement('canvas'); out.width = tw; out.height = th;
+  const og = out.getContext('2d'); og.imageSmoothingQuality = 'high'; og.drawImage(cur, 0, 0, tw, th);
+  return { url: out.toDataURL('image/webp', quality), w: tw, h: th };
+}
+function draw(name, scene, cam, w, h, maxW, maxH, quality) {
+  renderer.setSize(w, h, false); canvas.width = w; canvas.height = h;
+  renderer.setClearColor(0x000000, 0); renderer.clear();
+  renderer.render(scene, cam);
+  window.__assets[name] = exportWebp(maxW, maxH, quality);
+}
+
+window.__assets = {};
+const jobs = [];
+// Home stage hero: floating island mosque at dusk (concept A)
+jobs.push(() => {
+  const s = rig('float', 'A'); const isl = island('A'); fit(isl, 6.2); s.add(isl);
+  s.environmentIntensity = 0.32;
+  s.children.forEach((o) => { if (o.isDirectionalLight && o.castShadow) { o.color.set(0xFFB277); o.intensity = 2.1; o.position.set(-6, 3.2, 3); } });
+  s.add(new THREE.AmbientLight(0x7A6BFF, 0.35));
+  draw('diorama_senja', s, fitCamera(isl, [0.62, 0.2, 0.78], 1700, 1560, 26, 1.02, -0.1), 1700, 1560, 840, 900, 0.9);
+});
+// Gold crescent and star for the dusk sky
+jobs.push(() => {
+  const s = rig('float', 'C'); const c = crescentStar('C'); s.add(c);
+  draw('moon', s, fitCamera(c, [0.12, 0.08, 1], 800, 800, 28, 1.05), 800, 800, 180, 180, 0.9);
+});
+// Kaaba for the qibla dial
+jobs.push(() => {
+  const s = rig('float', 'A'); const wrap = new THREE.Group(); wrap.add(kaaba('A')); fit(wrap, 1.2); s.add(wrap);
+  draw('kaaba', s, camera(720, 720, [2.6, 2.0, 3.6], [0, 0.55, 0], 24), 720, 720, 200, 200, 0.9);
+});
+// Clay icon set (concept A)
+const icons = { quran: iconQuran, hadits: iconScroll, doa: iconRug, husna: iconStar, kiblat: iconKaaba, tasbih: iconTasbih, beranda: iconHome, kalender: iconCalendar, catatan: iconChecklist, jadwal: iconClock };
+const only = new URLSearchParams(location.search).get('only');
+for (const [k, fn] of Object.entries(icons)) {
+  if (only && !only.split(',').includes(k)) continue;
+  jobs.push(() => {
+    const s = rig('icon', 'A'); const o = fn('A'); const wrap = new THREE.Group(); wrap.add(o); fit(wrap, 1.9); s.add(wrap);
+    draw(`icon_${k}`, s, camera(720, 720, [2.6, 2.4, 3.6], [0, 0.72, 0], 30), 720, 720, 288, 288, 0.9);
+  });
+}
+// Large prayer beads for the Tasbih screen
+jobs.push(() => {
+  const s = rig('icon', 'A'); const o = iconTasbih('A'); const wrap = new THREE.Group(); wrap.add(o); fit(wrap, 1.9); s.add(wrap);
+  draw('tasbih_large', s, camera(1200, 1200, [2.6, 2.4, 3.6], [0, 0.72, 0], 30), 1200, 1200, 560, 560, 0.9);
+});
+(async () => {
+  for (const j of jobs) { j(); await new Promise((r) => setTimeout(r, 0)); }
+  document.body.dataset.ready = '1';
+})();
+</script>
+</body>
+</html>

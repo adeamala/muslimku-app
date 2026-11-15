@@ -1,0 +1,87 @@
+name: Release (Play Store)
+
+# Manual: Actions → "Release (Play Store)" → Run workflow.
+# Builds the signed bundle from repository secrets and keeps it as a run
+# artifact. When PLAY_SERVICE_ACCOUNT_JSON is set it also uploads the bundle
+# to Play as a *draft* release; you review and roll it out in Play Console.
+# Setup and secrets: docs/RELEASE.md.
+on:
+  workflow_dispatch:
+    inputs:
+      track:
+        description: Play track for the draft release
+        type: choice
+        options: [production, beta, alpha, internal]
+        default: production
+
+concurrency:
+  group: release
+  cancel-in-progress: false
+
+jobs:
+  release:
+    name: build · sign · upload
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    env:
+      HAS_PLAY_KEY: ${{ secrets.PLAY_SERVICE_ACCOUNT_JSON != '' }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: "17"
+
+      - name: Read Flutter version from .fvmrc
+        run: echo "FLUTTER_VERSION=$(jq -r .flutter .fvmrc)" >> "$GITHUB_ENV"
+
+      - uses: subosito/flutter-action@v2
+        with:
+          flutter-version: ${{ env.FLUTTER_VERSION }}
+          channel: stable
+          cache: true
+
+      - run: flutter pub get
+
+      - name: Restore signing key from secrets
+        env:
+          KEYSTORE_BASE64: ${{ secrets.ANDROID_KEYSTORE_BASE64 }}
+          KEYSTORE_PASSWORD: ${{ secrets.ANDROID_KEYSTORE_PASSWORD }}
+          KEY_PASSWORD: ${{ secrets.ANDROID_KEY_PASSWORD }}
+          KEY_ALIAS: ${{ secrets.ANDROID_KEY_ALIAS }}
+        run: |
+          if [ -z "$KEYSTORE_BASE64" ]; then
+            echo "::error::Secret ANDROID_KEYSTORE_BASE64 is missing; see docs/RELEASE.md"
+            exit 1
+          fi
+          mkdir -p android/app/keystore
+          echo "$KEYSTORE_BASE64" | base64 --decode > android/app/keystore/upload.jks
+          printf '%s\n' \
+            "storePassword=$KEYSTORE_PASSWORD" \
+            "keyPassword=$KEY_PASSWORD" \
+            "keyAlias=$KEY_ALIAS" \
+            "storeFile=app/keystore/upload.jks" > android/key.properties
+
+      - name: Build and verify signed bundle
+        run: tools/release/build_aab.sh
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: app-release-aab
+          path: build/app/outputs/bundle/release/app-release.aab
+          retention-days: 30
+
+      - name: Upload to Google Play (draft)
+        if: env.HAS_PLAY_KEY == 'true'
+        uses: r0adkll/upload-google-play@v1
+        with:
+          serviceAccountJsonPlainText: ${{ secrets.PLAY_SERVICE_ACCOUNT_JSON }}
+          packageName: com.muslimku.app
+          releaseFiles: build/app/outputs/bundle/release/app-release.aab
+          track: ${{ inputs.track }}
+          status: draft
+
+      - name: Remove signing files
+        if: always()
+        run: rm -f android/key.properties android/app/keystore/upload.jks

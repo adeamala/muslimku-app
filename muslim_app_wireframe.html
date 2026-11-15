@@ -1,0 +1,1065 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Muslim App Wireframe</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+        }
+
+        body {
+            background: #f5f7fa;
+            padding: 20px;
+            min-height: 100vh;
+        }
+
+        .phone-container {
+            max-width: 375px;
+            margin: 0 auto;
+            background: white;
+            border-radius: 25px;
+            box-shadow: 0 10px 30px rgba(0,0,0,0.15);
+            overflow: hidden;
+            position: relative;
+        }
+
+        .screen-selector {
+            display: flex;
+            justify-content: center;
+            gap: 10px;
+            margin-bottom: 20px;
+            flex-wrap: wrap;
+        }
+
+        .screen-btn {
+            padding: 8px 16px;
+            background: #e2e8f0;
+            border: none;
+            border-radius: 20px;
+            cursor: pointer;
+            font-size: 12px;
+            transition: all 0.3s;
+        }
+
+        .screen-btn.active {
+            background: #22c55e;
+            color: white;
+        }
+
+        .screen-btn:hover {
+            transform: translateY(-2px);
+        }
+
+        .screen {
+            display: none;
+            height: 667px;
+            overflow: hidden;
+        }
+
+        .screen.active {
+            display: block;
+        }
+
+        /* Status Bar */
+        .status-bar {
+            height: 44px;
+            background: #22c55e;
+            color: white;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 0 20px;
+            font-size: 14px;
+            font-weight: 500;
+        }
+
+        /* Header */
+        .header {
+            background: #22c55e;
+            color: white;
+            padding: 20px;
+            text-align: center;
+        }
+
+        .header h1 {
+            font-size: 20px;
+            margin-bottom: 5px;
+        }
+
+        .header .subtitle {
+            font-size: 12px;
+            opacity: 0.9;
+        }
+
+        /* Navigation */
+        .nav-tabs {
+            display: flex;
+            background: white;
+            border-bottom: 1px solid #e2e8f0;
+        }
+
+        .nav-tab {
+            flex: 1;
+            padding: 15px 10px;
+            text-align: center;
+            background: none;
+            border: none;
+            cursor: pointer;
+            font-size: 12px;
+            color: #64748b;
+            border-bottom: 3px solid transparent;
+        }
+
+        .nav-tab.active {
+            color: #22c55e;
+            border-bottom-color: #22c55e;
+        }
+
+        /* Content */
+        .content {
+            padding: 20px;
+            height: calc(100% - 180px);
+            overflow-y: auto;
+        }
+
+        .card {
+            background: white;
+            border-radius: 12px;
+            padding: 20px;
+            margin-bottom: 15px;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+            border: 1px solid #e2e8f0;
+        }
+
+        .prayer-time {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 12px 0;
+            border-bottom: 1px solid #f1f5f9;
+        }
+
+        .prayer-time:last-child {
+            border-bottom: none;
+        }
+
+        .prayer-time.current {
+            background: #f0fdf4;
+            margin: -20px;
+            padding: 20px;
+            border-radius: 12px;
+            border: 2px solid #22c55e;
+        }
+
+        .prayer-name {
+            font-weight: 600;
+            color: #1e293b;
+        }
+
+        .prayer-time-value {
+            font-weight: 500;
+            color: #22c55e;
+        }
+
+        .verse-card {
+            text-align: center;
+            background: linear-gradient(135deg, #22c55e, #16a34a);
+            color: white;
+            border-radius: 15px;
+            padding: 25px;
+            margin-bottom: 20px;
+        }
+
+        .arabic-text {
+            font-size: 18px;
+            line-height: 1.8;
+            margin-bottom: 15px;
+            font-family: 'Traditional Arabic', serif;
+        }
+
+        .translation {
+            font-style: italic;
+            opacity: 0.9;
+            font-size: 14px;
+        }
+
+        .surah-info {
+            font-size: 12px;
+            margin-top: 10px;
+            opacity: 0.8;
+        }
+
+        .list-item {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 15px 0;
+            border-bottom: 1px solid #f1f5f9;
+            cursor: pointer;
+        }
+
+        .list-item:hover {
+            background: #f8fafc;
+            margin: 0 -20px;
+            padding: 15px 20px;
+        }
+
+        .list-item:last-child {
+            border-bottom: none;
+        }
+
+        .list-title {
+            font-weight: 500;
+            color: #1e293b;
+        }
+
+        .list-subtitle {
+            font-size: 12px;
+            color: #64748b;
+            margin-top: 2px;
+        }
+
+        .arrow {
+            color: #94a3b8;
+            font-size: 18px;
+        }
+
+        .quick-actions {
+            display: grid;
+            grid-template-columns: repeat(2, 1fr);
+            gap: 15px;
+            margin-bottom: 20px;
+        }
+
+        .quick-action {
+            background: white;
+            border: 1px solid #e2e8f0;
+            border-radius: 12px;
+            padding: 20px;
+            text-align: center;
+            cursor: pointer;
+            transition: all 0.3s;
+        }
+
+        .quick-action:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 4px 12px rgba(0,0,0,0.1);
+        }
+
+        .quick-action-icon {
+            font-size: 24px;
+            margin-bottom: 8px;
+            color: #22c55e;
+        }
+
+        .quick-action-title {
+            font-size: 12px;
+            color: #1e293b;
+            font-weight: 500;
+        }
+
+        .bottom-nav {
+            position: fixed;
+            bottom: 0;
+            left: 50%;
+            transform: translateX(-50%);
+            width: 375px;
+            height: 80px;
+            background: white;
+            border-top: 1px solid #e2e8f0;
+            display: flex;
+            justify-content: space-around;
+            align-items: center;
+        }
+
+        .nav-item {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            padding: 8px;
+            cursor: pointer;
+            color: #94a3b8;
+            font-size: 10px;
+        }
+
+        .nav-item.active {
+            color: #22c55e;
+        }
+
+        .nav-icon {
+            font-size: 20px;
+            margin-bottom: 4px;
+        }
+
+        .location-picker {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            background: #f8fafc;
+            border: 1px solid #e2e8f0;
+            border-radius: 8px;
+            padding: 12px;
+            margin-bottom: 20px;
+            cursor: pointer;
+        }
+
+        .city-modal {
+            display: none;
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(0,0,0,0.5);
+            z-index: 1000;
+        }
+
+        .city-modal-content {
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            background: white;
+            border-radius: 12px;
+            padding: 20px;
+            width: 90%;
+            max-width: 400px;
+            max-height: 80vh;
+            overflow-y: auto;
+        }
+
+        .city-search {
+            width: 100%;
+            padding: 12px;
+            border: 1px solid #e2e8f0;
+            border-radius: 8px;
+            margin-bottom: 15px;
+            font-size: 14px;
+        }
+
+        .city-item {
+            padding: 12px;
+            border-bottom: 1px solid #f1f5f9;
+            cursor: pointer;
+        }
+
+        .city-item:hover {
+            background: #f8fafc;
+        }
+
+        .city-item:last-child {
+            border-bottom: none;
+        }
+
+        .close-modal {
+            position: absolute;
+            top: 10px;
+            right: 15px;
+            background: none;
+            border: none;
+            font-size: 20px;
+            cursor: pointer;
+            color: #64748b;
+        }
+
+        .hadith-text {
+            background: #f8fafc;
+            border-left: 4px solid #22c55e;
+            padding: 15px;
+            margin: 15px 0;
+            border-radius: 0 8px 8px 0;
+        }
+
+        .hadith-source {
+            font-size: 12px;
+            color: #64748b;
+            text-align: right;
+            margin-top: 10px;
+        }
+
+        .asma-item {
+            text-align: center;
+            padding: 20px;
+            background: linear-gradient(135deg, #f0fdf4, #dcfce7);
+            border-radius: 12px;
+            margin-bottom: 10px;
+        }
+
+        .asma-arabic {
+            font-size: 24px;
+            color: #22c55e;
+            font-weight: bold;
+            margin-bottom: 8px;
+        }
+
+        .asma-latin {
+            font-size: 14px;
+            color: #16a34a;
+            margin-bottom: 5px;
+        }
+
+        .asma-meaning {
+            font-size: 12px;
+            color: #15803d;
+        }
+
+        .search-bar {
+            background: #f8fafc;
+            border: 1px solid #e2e8f0;
+            border-radius: 8px;
+            padding: 12px;
+            margin-bottom: 20px;
+            font-size: 14px;
+            width: 100%;
+        }
+
+        .hijri-date {
+            background: linear-gradient(135deg, #1e293b, #334155);
+            color: white;
+            padding: 20px;
+            border-radius: 12px;
+            text-align: center;
+            margin-bottom: 20px;
+        }
+
+        .hijri-main {
+            font-size: 18px;
+            font-weight: 600;
+            margin-bottom: 5px;
+        }
+
+        .hijri-gregorian {
+            font-size: 12px;
+            opacity: 0.8;
+        }
+    </style>
+</head>
+<body>
+    <div class="screen-selector">
+        <button class="screen-btn active" onclick="showScreen('dashboard')">Dashboard</button>
+        <button class="screen-btn" onclick="showScreen('sholat')">Sholat</button>
+        <button class="screen-btn" onclick="showScreen('quran')">Al-Quran</button>
+        <button class="screen-btn" onclick="showScreen('hadits')">Hadits</button>
+        <button class="screen-btn" onclick="showScreen('doa')">Doa</button>
+        <button class="screen-btn" onclick="showScreen('asma')">Asmaul Husna</button>
+    </div>
+
+    <div class="phone-container">
+        <!-- Dashboard Screen -->
+        <div class="screen active" id="dashboard">
+            <div class="status-bar">
+                <span>9:41</span>
+                <span>📶 📶 🔋</span>
+            </div>
+            
+            <div class="header">
+                <h1>Assalamu'alaikum</h1>
+                <div class="subtitle">Jakarta, Indonesia</div>
+            </div>
+
+            <div class="content">
+                <div class="hijri-date">
+                    <div class="hijri-main">27 Ramadan 1446 H</div>
+                    <div class="hijri-gregorian">24 September 2025</div>
+                </div>
+
+                <div class="card">
+                    <h3 style="margin-bottom: 15px; color: #1e293b;">Waktu Sholat Hari Ini</h3>
+                    <div class="prayer-time current">
+                        <span class="prayer-name">Dzuhur</span>
+                        <span class="prayer-time-value">11:38</span>
+                    </div>
+                    <div class="prayer-time">
+                        <span class="prayer-name">Ashar</span>
+                        <span class="prayer-time-value">14:57</span>
+                    </div>
+                    <div class="prayer-time">
+                        <span class="prayer-name">Maghrib</span>
+                        <span class="prayer-time-value">17:28</span>
+                    </div>
+                </div>
+
+                <div class="verse-card">
+                    <div class="arabic-text">وَمَا خَلَقْتُ الْجِنَّ وَالْإِنسَ إِلَّا لِيَعْبُدُونِ</div>
+                    <div class="translation">"Dan Aku tidak menciptakan jin dan manusia melainkan supaya mereka mengabdi kepada-Ku."</div>
+                    <div class="surah-info">QS. Adz-Dzariyat: 56</div>
+                </div>
+
+                <div class="quick-actions">
+                    <div class="quick-action">
+                        <div class="quick-action-icon">📖</div>
+                        <div class="quick-action-title">Baca Quran</div>
+                    </div>
+                    <div class="quick-action">
+                        <div class="quick-action-icon">📿</div>
+                        <div class="quick-action-title">Asmaul Husna</div>
+                    </div>
+                    <div class="quick-action">
+                        <div class="quick-action-icon">🤲</div>
+                        <div class="quick-action-title">Doa Harian</div>
+                    </div>
+                    <div class="quick-action">
+                        <div class="quick-action-icon">📚</div>
+                        <div class="quick-action-title">Hadits</div>
+                    </div>
+                </div>
+            </div>
+
+            <div class="bottom-nav">
+                <div class="nav-item active">
+                    <div class="nav-icon">🏠</div>
+                    <div>Home</div>
+                </div>
+                <div class="nav-item">
+                    <div class="nav-icon">🕌</div>
+                    <div>Sholat</div>
+                </div>
+                <div class="nav-item">
+                    <div class="nav-icon">📖</div>
+                    <div>Quran</div>
+                </div>
+                <div class="nav-item">
+                    <div class="nav-icon">⚙️</div>
+                    <div>Lainnya</div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Sholat Screen -->
+        <div class="screen" id="sholat">
+            <div class="status-bar">
+                <span>9:41</span>
+                <span>📶 📶 🔋</span>
+            </div>
+            
+            <div class="header">
+                <h1>Jadwal Sholat</h1>
+                <div class="subtitle">Kota Kediri, Jawa Timur</div>
+            </div>
+
+            <div class="content">
+                <div class="location-picker" onclick="openCityModal()">
+                    <span id="selected-city">📍 Pilih Kota</span>
+                    <span class="arrow">›</span>
+                </div>
+
+                <div class="card">
+                    <h3 style="margin-bottom: 15px; color: #1e293b;">Minggu, 23 Juni 2024</h3>
+                    <div class="prayer-time">
+                        <span class="prayer-name">Imsak</span>
+                        <span class="prayer-time-value">04:13</span>
+                    </div>
+                    <div class="prayer-time current">
+                        <span class="prayer-name">Subuh</span>
+                        <span class="prayer-time-value">04:23</span>
+                    </div>
+                    <div class="prayer-time">
+                        <span class="prayer-name">Terbit</span>
+                        <span class="prayer-time-value">05:41</span>
+                    </div>
+                    <div class="prayer-time">
+                        <span class="prayer-name">Dhuha</span>
+                        <span class="prayer-time-value">06:10</span>
+                    </div>
+                    <div class="prayer-time">
+                        <span class="prayer-name">Dzuhur</span>
+                        <span class="prayer-time-value">11:38</span>
+                    </div>
+                    <div class="prayer-time">
+                        <span class="prayer-name">Ashar</span>
+                        <span class="prayer-time-value">14:57</span>
+                    </div>
+                    <div class="prayer-time">
+                        <span class="prayer-name">Maghrib</span>
+                        <span class="prayer-time-value">17:28</span>
+                    </div>
+                    <div class="prayer-time">
+                        <span class="prayer-name">Isya</span>
+                        <span class="prayer-time-value">18:42</span>
+                    </div>
+                </div>
+
+                <div class="nav-tabs">
+                    <button class="nav-tab active">Harian</button>
+                    <button class="nav-tab">Bulanan</button>
+                    <button class="nav-tab">Tools</button>
+                </div>
+            </div>
+        </div>
+
+        <!-- Quran Screen -->
+        <div class="screen" id="quran">
+            <div class="status-bar">
+                <span>9:41</span>
+                <span>📶 📶 🔋</span>
+            </div>
+            
+            <div class="header">
+                <h1>Al-Quran</h1>
+                <div class="subtitle">114 Surat, 30 Juz</div>
+            </div>
+
+            <div class="content">
+                <input type="text" placeholder="Cari surat..." class="search-bar" oninput="searchSurat()" id="surat-search">
+
+                <div class="nav-tabs">
+                    <button class="nav-tab active">Surat</button>
+                    <button class="nav-tab">Juz</button>
+                    <button class="nav-tab">Tema</button>
+                </div>
+
+                <div class="card">
+                    <div class="list-item">
+                        <div>
+                            <div class="list-title">1. Al-Fatihah</div>
+                            <div class="list-subtitle">7 ayat • Makkiyah</div>
+                        </div>
+                        <span class="arrow">›</span>
+                    </div>
+                    <div class="list-item">
+                        <div>
+                            <div class="list-title">2. Al-Baqarah</div>
+                            <div class="list-subtitle">286 ayat • Madaniyah</div>
+                        </div>
+                        <span class="arrow">›</span>
+                    </div>
+                    <div class="list-item">
+                        <div>
+                            <div class="list-title">3. Ali 'Imran</div>
+                            <div class="list-subtitle">200 ayat • Madaniyah</div>
+                        </div>
+                        <span class="arrow">›</span>
+                    </div>
+                    <div class="list-item">
+                        <div>
+                            <div class="list-title">4. An-Nisa'</div>
+                            <div class="list-subtitle">176 ayat • Madaniyah</div>
+                        </div>
+                        <span class="arrow">›</span>
+                    </div>
+                </div>
+
+                <div class="quick-actions">
+                    <div class="quick-action" onclick="loadRandomAyat()">
+                        <div class="quick-action-icon">🎲</div>
+                        <div class="quick-action-title">Ayat Acak</div>
+                    </div>
+                    <div class="quick-action" onclick="showBookmarks()">
+                        <div class="quick-action-icon">🔖</div>
+                        <div class="quick-action-title">Bookmark</div>
+                    </div>
+                    <div class="quick-action" onclick="loadRandomPage()">
+                        <div class="quick-action-icon">📄</div>
+                        <div class="quick-action-title">Halaman Acak</div>
+                    </div>
+                    <div class="quick-action" onclick="browseAyat()">
+                        <div class="quick-action-icon">🔍</div>
+                        <div class="quick-action-title">Browse Ayat</div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Hadits Screen -->
+        <div class="screen" id="hadits">
+            <div class="status-bar">
+                <span>9:41</span>
+                <span>📶 📶 🔋</span>
+            </div>
+            
+            <div class="header">
+                <h1>Hadits</h1>
+                <div class="subtitle">Koleksi Hadits Shahih</div>
+            </div>
+
+            <div class="content">
+                <div class="nav-tabs">
+                    <button class="nav-tab active">Arbain</button>
+                    <button class="nav-tab">9 Imam</button>
+                    <button class="nav-tab">Bulughul Maram</button>
+                </div>
+
+                <div class="card">
+                    <h3 style="margin-bottom: 15px; color: #1e293b;">Hadits Arbain Nawawi</h3>
+                    <div class="list-item">
+                        <div>
+                            <div class="list-title">Hadits 1: Niat</div>
+                            <div class="list-subtitle">إنما الأعمال بالنيات</div>
+                        </div>
+                        <span class="arrow">›</span>
+                    </div>
+                    <div class="list-item">
+                        <div>
+                            <div class="list-title">Hadits 2: Islam, Iman, Ihsan</div>
+                            <div class="list-subtitle">عن عمر رضي الله عنه</div>
+                        </div>
+                        <span class="arrow">›</span>
+                    </div>
+                    <div class="list-item">
+                        <div>
+                            <div class="list-title">Hadits 3: Rukun Islam</div>
+                            <div class="list-subtitle">بني الإسلام على خمس</div>
+                        </div>
+                        <span class="arrow">›</span>
+                    </div>
+                </div>
+
+                <div class="card">
+                    <div class="hadith-text">
+                        <div class="arabic-text" style="font-size: 16px; color: #1e293b; margin-bottom: 10px;">
+                            إِنَّمَا الأَعْمَالُ بِالنِّيَّاتِ وَإِنَّمَا لِكُلِّ امْرِئٍ مَا نَوَى
+                        </div>
+                        <div style="font-size: 14px; color: #475569;">
+                            "Sesungguhnya setiap perbuatan tergantung niatnya, dan setiap orang (akan dibalas) berdasarkan apa yang dia niatkan."
+                        </div>
+                        <div class="hadith-source">- HR. Bukhari</div>
+                    </div>
+                </div>
+
+                <div class="quick-actions" style="margin-top: 20px;">
+                    <div class="quick-action" onclick="loadRandomHadits()">
+                        <div class="quick-action-icon">🎲</div>
+                        <div class="quick-action-title">Hadits Acak</div>
+                    </div>
+                    <div class="quick-action" onclick="loadRandomArbain()">
+                        <div class="quick-action-icon">📿</div>
+                        <div class="quick-action-title">Arbain Acak</div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Doa Screen -->
+        <div class="screen" id="doa">
+            <div class="status-bar">
+                <span>9:41</span>
+                <span>📶 📶 🔋</span>
+            </div>
+            
+            <div class="header">
+                <h1>Doa-doa</h1>
+                <div class="subtitle">Kumpulan Doa Harian</div>
+            </div>
+
+            <div class="content">
+                <input type="text" placeholder="Cari doa..." class="search-bar" oninput="searchDoa()" id="doa-search">
+
+                <div class="nav-tabs">
+                    <button class="nav-tab active">Harian</button>
+                    <button class="nav-tab">Quran</button>
+                    <button class="nav-tab">Hadits</button>
+                </div>
+
+                <div class="card">
+                    <div class="list-item">
+                        <div>
+                            <div class="list-title">Doa Bangun Tidur</div>
+                            <div class="list-subtitle">الحمد لله الذي أحيانا</div>
+                        </div>
+                        <span class="arrow">›</span>
+                    </div>
+                    <div class="list-item">
+                        <div>
+                            <div class="list-title">Doa Masuk Masjid</div>
+                            <div class="list-subtitle">اللهم افتح لي أبواب رحمتك</div>
+                        </div>
+                        <span class="arrow">›</span>
+                    </div>
+                    <div class="list-item">
+                        <div>
+                            <div class="list-title">Doa Sebelum Makan</div>
+                            <div class="list-subtitle">بسم الله وعلى بركة الله</div>
+                        </div>
+                        <span class="arrow">›</span>
+                    </div>
+                    <div class="list-item">
+                        <div>
+                            <div class="list-title">Doa Setelah Makan</div>
+                            <div class="list-subtitle">الحمد لله الذي أطعمنا</div>
+                        </div>
+                        <span class="arrow">›</span>
+                    </div>
+                </div>
+
+                <div class="card">
+                    <h3 style="margin-bottom: 15px; color: #1e293b;">Doa Pilihan</h3>
+                    <div class="hadith-text">
+                        <div class="arabic-text" style="font-size: 16px; color: #1e293b; margin-bottom: 10px;">
+                            رَبَّنَا آتِنَا فِي الدُّنْيَا حَسَنَةً وَفِي الآخِرَةِ حَسَنَةً وَقِنَا عَذَابَ النَّارِ
+                        </div>
+                        <div style="font-size: 14px; color: #475569;">
+                            "Ya Tuhan kami, berilah kami kebaikan di dunia dan kebaikan di akhirat dan peliharalah kami dari siksa neraka."
+                        </div>
+                        <div class="hadith-source">QS. Al-Baqarah: 201</div>
+                    </div>
+                </div>
+
+                <div class="quick-actions">
+                    <div class="quick-action" onclick="loadRandomDoa()">
+                        <div class="quick-action-icon">🎲</div>
+                        <div class="quick-action-title">Doa Acak</div>
+                    </div>
+                    <div class="quick-action" onclick="showDoaSources()">
+                        <div class="quick-action-icon">📚</div>
+                        <div class="quick-action-title">Sumber Doa</div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Asmaul Husna Screen -->
+        <div class="screen" id="asma">
+            <div class="status-bar">
+                <span>9:41</span>
+                <span>📶 📶 🔋</span>
+            </div>
+            
+            <div class="header">
+                <h1>Asmaul Husna</h1>
+                <div class="subtitle">99 Nama Allah Yang Indah</div>
+            </div>
+
+            <div class="content">
+                <div class="asma-item">
+                    <div class="asma-arabic">الرَّحْمٰنُ</div>
+                    <div class="asma-latin">Ar-Rahmānu</div>
+                    <div class="asma-meaning">Yang Maha Pengasih</div>
+                </div>
+
+                <div class="card">
+                    <div class="list-item">
+                        <div>
+                            <div class="list-title">1. Ar-Rahman</div>
+                            <div class="list-subtitle">الرَّحْمٰنُ - Yang Maha Pengasih</div>
+                        </div>
+                        <span class="arrow">›</span>
+                    </div>
+                    <div class="list-item">
+                        <div>
+                            <div class="list-title">2. Ar-Rahim</div>
+                            <div class="list-subtitle">الرَّحِيْمُ - Yang Maha Penyayang</div>
+                        </div>
+                        <span class="arrow">›</span>
+                    </div>
+                    <div class="list-item">
+                        <div>
+                            <div class="list-title">3. Al-Malik</div>
+                            <div class="list-subtitle">الْمَلِكُ - Yang Maha Merajai</div>
+                        </div>
+                        <span class="arrow">›</span>
+                    </div>
+                    <div class="list-item">
+                        <div>
+                            <div class="list-title">4. Al-Quddus</div>
+                            <div class="list-subtitle">الْقُدُّوْسُ - Yang Maha Suci</div>
+                        </div>
+                        <span class="arrow">›</span>
+                    </div>
+                </div>
+
+                <div class="quick-actions">
+                    <div class="quick-action" onclick="loadRandomAsma()">
+                        <div class="quick-action-icon">🎲</div>
+                        <div class="quick-action-title">Acak</div>
+                    </div>
+                    <div class="quick-action" onclick="loadAllAsma()">
+                        <div class="quick-action-icon">📖</div>
+                        <div class="quick-action-title">Semua</div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- City Selection Modal -->
+    <div id="city-modal" class="city-modal">
+        <div class="city-modal-content">
+            <button class="close-modal" onclick="closeCityModal()">&times;</button>
+            <h3 style="margin-bottom: 15px;">Pilih Kota</h3>
+            <input type="text" id="city-search" class="city-search" placeholder="Cari kota..." oninput="searchCity()">
+            <div id="city-list">
+                <div class="city-item" onclick="selectCity('1632', 'KOTA KEDIRI')">KOTA KEDIRI</div>
+                <div class="city-item" onclick="selectCity('1609', 'KAB. KEDIRI')">KAB. KEDIRI</div>
+                <div class="city-item" onclick="selectCity('1639', 'KOTA MALANG')">KOTA MALANG</div>
+                <div class="city-item" onclick="selectCity('1638', 'KAB. MALANG')">KAB. MALANG</div>
+                <div class="city-item" onclick="selectCity('1657', 'KOTA SURABAYA')">KOTA SURABAYA</div>
+                <div class="city-item" onclick="selectCity('1301', 'JAKARTA PUSAT')">JAKARTA PUSAT</div>
+                <div class="city-item" onclick="selectCity('1302', 'JAKARTA UTARA')">JAKARTA UTARA</div>
+                <div class="city-item" onclick="selectCity('1303', 'JAKARTA BARAT')">JAKARTA BARAT</div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        function showScreen(screenId) {
+            // Hide all screens
+            document.querySelectorAll('.screen').forEach(screen => {
+                screen.classList.remove('active');
+            });
+            
+            // Remove active class from all buttons
+            document.querySelectorAll('.screen-btn').forEach(btn => {
+                btn.classList.remove('active');
+            });
+            
+            // Show selected screen
+            document.getElementById(screenId).classList.add('active');
+            
+            // Add active class to clicked button
+            event.target.classList.add('active');
+        }
+
+        // City Modal Functions
+        function openCityModal() {
+            document.getElementById('city-modal').style.display = 'block';
+        }
+
+        function closeCityModal() {
+            document.getElementById('city-modal').style.display = 'none';
+        }
+
+        function selectCity(id, name) {
+            document.getElementById('selected-city').textContent = '📍 ' + name;
+            localStorage.setItem('selectedCity', JSON.stringify({id: id, name: name}));
+            closeCityModal();
+        }
+
+        function searchCity() {
+            const searchTerm = document.getElementById('city-search').value.toLowerCase();
+            const cityItems = document.querySelectorAll('.city-item');
+            cityItems.forEach(item => {
+                if (item.textContent.toLowerCase().includes(searchTerm)) {
+                    item.style.display = 'block';
+                } else {
+                    item.style.display = 'none';
+                }
+            });
+        }
+
+        // Random Functions
+        function loadRandomAyat() {
+            console.log('Loading random ayat from API: /quran/ayat/acak');
+        }
+
+        function loadRandomPage() {
+            const randomPage = Math.floor(Math.random() * 604) + 1;
+            console.log('Loading random page:', randomPage, 'from API: /quran/ayat/page/' + randomPage);
+        }
+
+        function loadRandomHadits() {
+            console.log('Loading random hadits from API: /hadits/perawi/acak');
+        }
+
+        function loadRandomArbain() {
+            console.log('Loading random arbain from API: /hadits/arbain/acak');
+        }
+
+        function loadRandomDoa() {
+            console.log('Loading random doa from API: /doa/acak');
+        }
+
+        function loadRandomAsma() {
+            console.log('Loading random asma from API: /husna/acak');
+        }
+
+        function loadAllAsma() {
+            console.log('Loading all asma from API: /husna/semua');
+        }
+
+        // Bookmark Functions
+        function showBookmarks() {
+            const bookmarks = JSON.parse(localStorage.getItem('bookmarks')) || [];
+            console.log('Showing bookmarks:', bookmarks);
+        }
+
+        function addBookmark(type, id, title) {
+            let bookmarks = JSON.parse(localStorage.getItem('bookmarks')) || [];
+            bookmarks.push({type: type, id: id, title: title, date: new Date()});
+            localStorage.setItem('bookmarks', JSON.stringify(bookmarks));
+        }
+
+        function browseAyat() {
+            console.log('Browse ayat with pagination from API: /quran/ayat/browse');
+        }
+
+        function showDoaSources() {
+            console.log('Loading doa sources from API: /doa/sumber');
+        }
+
+        // Search Functions
+        function searchSurat() {
+            const searchTerm = document.getElementById('surat-search').value.toLowerCase();
+            const listItems = document.querySelectorAll('#quran .list-item');
+            listItems.forEach(item => {
+                const title = item.querySelector('.list-title').textContent.toLowerCase();
+                if (title.includes(searchTerm)) {
+                    item.style.display = 'flex';
+                } else {
+                    item.style.display = 'none';
+                }
+            });
+        }
+
+        function searchDoa() {
+            const searchTerm = document.getElementById('doa-search').value.toLowerCase();
+            const listItems = document.querySelectorAll('#doa .list-item');
+            listItems.forEach(item => {
+                const title = item.querySelector('.list-title').textContent.toLowerCase();
+                if (title.includes(searchTerm)) {
+                    item.style.display = 'flex';
+                } else {
+                    item.style.display = 'none';
+                }
+            });
+        }
+
+        // Add some interactivity
+        document.addEventListener('DOMContentLoaded', function() {
+            // Load saved city
+            const savedCity = JSON.parse(localStorage.getItem('selectedCity'));
+            if (savedCity) {
+                document.getElementById('selected-city').textContent = '📍 ' + savedCity.name;
+            }
+
+            // Add click handlers for nav items
+            document.querySelectorAll('.nav-item').forEach(item => {
+                item.addEventListener('click', function() {
+                    document.querySelectorAll('.nav-item').forEach(nav => nav.classList.remove('active'));
+                    this.classList.add('active');
+                });
+            });
+
+            // Add click handlers for nav tabs
+            document.querySelectorAll('.nav-tab').forEach(tab => {
+                tab.addEventListener('click', function() {
+                    const parent = this.parentElement;
+                    parent.querySelectorAll('.nav-tab').forEach(t => t.classList.remove('active'));
+                    this.classList.add('active');
+                });
+            });
+
+            // Add hover effects for list items
+            document.querySelectorAll('.list-item').forEach(item => {
+                item.addEventListener('mouseenter', function() {
+                    this.style.backgroundColor = '#f8fafc';
+                });
+                item.addEventListener('mouseleave', function() {
+                    this.style.backgroundColor = 'transparent';
+                });
+            });
+
+            // Close modal when clicking outside
+            document.getElementById('city-modal').addEventListener('click', function(e) {
+                if (e.target === this) {
+                    closeCityModal();
+                }
+            });
+        });
+    </script>
+</body>
+</html>

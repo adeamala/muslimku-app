@@ -1,0 +1,11 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Brand purple with the M mark at 288dp, the same size and place as the
+     Android 12+ system splash icon, so every launch stage looks identical. -->
+<layer-list xmlns:android="http://schemas.android.com/apk/res/android">
+    <item android:drawable="@color/splash_background" />
+    <item>
+        <bitmap
+            android:gravity="center"
+            android:src="@drawable/splash_screen" />
+    </item>
+</layer-list>
