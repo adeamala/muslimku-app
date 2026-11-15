@@ -85,3 +85,6 @@ See [CONTRIBUTING.md](CONTRIBUTING.md).
 
 Code: [MIT](LICENSE). Fonts are under the SIL Open Font License
 (`fonts/OFL-*.txt`).
+
+The name "Muslimku" and the Muslimku logo are not covered by this license.
+Please use a different name and icon if you publish your own build.
